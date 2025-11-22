@@ -1,4 +1,7 @@
-python-dotenv==1.2.1
-langchain==1.0.8
-openai==2.8.1
+fastapi==0.121.3
 langchain-openai==1.0.3
+langchain==1.0.8
+minio==7.2.18
+openai==2.8.1
+python-dotenv==1.2.1
+uvicorn==0.38.0

@@ -1,0 +1,8 @@
+services:
+  agent-backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: claims-automation-agent
+    ports:
+      - "8000:8000"
