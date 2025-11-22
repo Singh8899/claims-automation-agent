@@ -2,8 +2,8 @@ from fastapi import Depends, FastAPI, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 
 from src.agent.agent import run_agent_query
-from src.api.schemas import ClaimDecisionResponse, ClaimsListResponse
-from src.api.utils import save_data, save_response
+from .schemas import ClaimDecisionResponse, ClaimsListResponse
+from .utils import save_data, save_response
 
 app = FastAPI(
     title="Insurance claims processor API",
@@ -23,8 +23,8 @@ async def process_claim(
     claim_metadata: UploadFile = File(..., description="User metadata (.md file)"),
     claim_image: UploadFile = File(..., description="Image supporting the claim (.webp file)")
 ):
-    message_text = (await claim_message.read()).decode("utf-8")
-    metadata_text = (await claim_metadata.read()).decode("utf-8")
+    message_text = await claim_message.read()
+    metadata_text = await claim_metadata.read()
     image_bytes = await claim_image.read()
     try:
         claim_id = save_data(message_text, metadata_text, image_bytes)

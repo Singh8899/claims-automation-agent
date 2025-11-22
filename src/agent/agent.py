@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage
 from .prompt import PROMPT
 from .security_filter import OutputValidator, PromptInjectionFilter
 from .tools import tools
+from .agent_utils import get_client_claim
 
 # Load environment variables from .env file
 load_dotenv(find_dotenv())
@@ -30,14 +31,13 @@ agent = create_agent(
 def run_agent_query(claim_id: str):
     """Helper function to run a query with the agent"""
 
-    #TODO read user claim file
-
+    client_claim = get_client_claim(claim_id)
     # Check for prompt injection
-    if prompt_injection_filter.detect_injection(query):
-        return "Potential prompt injection detected."
-
-    response = agent.invoke({"messages": [HumanMessage(content=query)]},
-    {"recursion_limit":50})
+    if prompt_injection_filter.detect_injection(client_claim):
+        return "The request cannot be processed, reason  'Potential prompt injection detected'."
+    client_claim_with_id = f"###CLAIM_ID###:'f{claim_id}'\n" + "###CLAIM###:\n" + client_claim
+    response = agent.invoke({"messages": [HumanMessage(content=client_claim_with_id)]},
+                            {"recursion_limit":20})
     # Get the last message in the conversation
     last_message = response["messages"][-1]
 
