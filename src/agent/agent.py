@@ -1,7 +1,5 @@
 """Set up the agent with custom tools"""
 
-import os
-
 from dotenv import find_dotenv, load_dotenv
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
@@ -34,22 +32,36 @@ def run_agent_query(claim_id: str):
     client_claim = get_client_claim(claim_id)
     # Check for prompt injection
     if prompt_injection_filter.detect_injection(client_claim):
-        return "The request cannot be processed, reason  'Potential prompt injection detected'."
-    client_claim_with_id = f"###CLAIM_ID###:'f{claim_id}'\n" + "###CLAIM###:\n" + client_claim
-    response = agent.invoke({"messages": [HumanMessage(content=client_claim_with_id)]},
-                            {"recursion_limit":20})
-    # Get the last message in the conversation
-    last_message = response["messages"][-1]
-
-    # Check if it's a tool message or AI message
-    if hasattr(last_message, 'content') and last_message.content:
-        return last_message.content
+        return {"decision": "DENY", "reason": "Potential prompt injection detected"}
     
-    # If no content, look for tool calls and their results
-    messages = response["messages"]
-    result_messages = []
-    for msg in messages:
-        if hasattr(msg, 'content') and msg.content and 'Company' in str(msg.content):
-            result_messages.append(str(msg.content))
-    message = output_validator.filter_response('\n'.join(result_messages) if result_messages else "No response generated")
-    return message
+    # Format claim with correct ID (no extra 'f' prefix)
+    client_claim_with_id = f"###CLAIM_ID###:{claim_id}\n###CLAIM###:\n{client_claim}"
+    
+    try:
+        response = agent.invoke(
+            {"messages": [HumanMessage(content=client_claim_with_id)]},
+            {"recursion_limit": 20}
+        )
+        
+        # Get the last message in the conversation
+        last_message = response["messages"][-1]
+
+        # Check if it's a tool message or AI message
+        if hasattr(last_message, 'content') and last_message.content:
+            return last_message.content
+        
+        # If no content, look for tool calls and their results
+        messages = response["messages"]
+        result_messages = []
+        for msg in messages:
+            if hasattr(msg, 'content') and msg.content:
+                # Look for decision-related content, not just "Company"
+                if any(word in str(msg.content).upper() for word in ['APPROVE', 'DENY', 'UNCERTAIN', 'DECISION']):
+                    result_messages.append(str(msg.content))
+        
+        message = output_validator.filter_response('\n'.join(result_messages) if result_messages else "No response generated")
+        return message
+        
+    except Exception as e:
+        print(f"Error in agent processing: {str(e)}")
+        return {"decision": "UNCERTAIN", "reason": f"Agent processing error: {str(e)}"}
