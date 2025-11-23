@@ -9,21 +9,20 @@ load_dotenv(find_dotenv())
 class PromptInjectionFilter:
     def __init__(self):
         self.dangerous_patterns = [
-            r'ignore\s+(all\s+)?previous\s+instructions?',
-            r'you\s+are\s+now\s+(in\s+)?developer\s+mode',
-            r'system\s+override',
-            r'reveal\s+prompt',
+            re.compile(r'ignore\s+(all\s+)?previous\s+instructions?', re.IGNORECASE),
+            re.compile(r'you\s+are\s+now\s+(in\s+)?developer\s+mode', re.IGNORECASE),
+            re.compile(r'system\s+override', re.IGNORECASE),
+            re.compile(r'reveal\s+prompt', re.IGNORECASE),
         ]
 
-        # Fuzzy matching 
+        # Fuzzy matching patterns
         self.fuzzy_patterns = [
             'ignore', 'bypass', 'override', 'reveal', 'delete', 'system'
         ]
 
     def detect_injection(self, text: str) -> bool:
         # Standard pattern matching
-        if any(re.search(pattern, text, re.IGNORECASE)
-               for pattern in self.dangerous_patterns):
+        if any(pattern.search(text) for pattern in self.dangerous_patterns):
             return True
 
         # Fuzzy matching for misspelled words
@@ -44,13 +43,12 @@ class PromptInjectionFilter:
 class OutputValidator:
     def __init__(self):
         self.suspicious_patterns = [
-            r'SYSTEM\s*[:]\s*You\s+are',     # System prompt leakage
-            r'instructions?[:]\s*\d+\.',     # Numbered instructions
+            re.compile(r'SYSTEM\s*[:]\s*You\s+are', re.IGNORECASE),
+            re.compile(r'instructions?[:]\s*\d+\.', re.IGNORECASE),
         ]
 
     def validate_output(self, output: str) -> bool:
-        return not any(re.search(pattern, output, re.IGNORECASE)
-                      for pattern in self.suspicious_patterns)
+        return not any(pattern.search(output) for pattern in self.suspicious_patterns)
 
     def filter_response(self, response: str) -> str:
         if not self.validate_output(response) or len(response) > 5000:

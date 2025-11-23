@@ -49,7 +49,7 @@ def present_decision(decision: ClaimDecision, explanation: str) -> ClaimDecision
     
     Args:
         decision: the final decision on the claim (APPROVE, DENY, or UNCERTAIN)
-        explanation: a detailed explanation of the decision with policy references
+        explanation: a brief explanation of the decision (max 2-3 sentences)
     
     Returns:
         final decision on the claim with explanation

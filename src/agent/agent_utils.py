@@ -4,7 +4,7 @@ import os
 from io import BytesIO
 
 from minio.error import S3Error
-from src.minio.client import minio_client
+from src.minio.client import MINIO_BUCKET_NAME, minio_client
 
 logger = logging.getLogger("src.agent")
 
@@ -29,7 +29,7 @@ def get_policy_document() -> str:
         raise
 
 
-def get_client_claim(claim_id: int) -> str:
+def get_client_claim(claim_id: str) -> str:
     try:
         bytesio_claim = retrieve_file_from_minio(f"{claim_id}/claim.txt")
         return bytesio_claim.read().decode('utf-8')
@@ -38,9 +38,8 @@ def get_client_claim(claim_id: int) -> str:
         raise
 
 def retrieve_file_from_minio(object_path: str) -> BytesIO:
-    bucket_name = os.getenv("MINIO_BUCKET_NAME", "claims-bucket")
     try:
-        response = minio_client.get_object(bucket_name, object_path)
+        response = minio_client.get_object(MINIO_BUCKET_NAME, object_path)
         file_data = BytesIO(response.read())
         response.close()
         response.release_conn()

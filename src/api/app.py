@@ -80,26 +80,27 @@ async def process_claim(
         # Handle both dict and string responses from agent
         if isinstance(response_dict, dict):
             decision = response_dict.get("decision", "UNCERTAIN")
-            reason = response_dict.get("reason", None)
+            explanation = response_dict.get("explanation", None)
         else:
             # If agent returns string, parse it as uncertain with the response as reason
             decision = "UNCERTAIN"
-            reason = str(response_dict)
+            explanation = str(response_dict)
         
         # Save claim decision to database
         await crud.create_claim(
             db=db,
             claim_id=claim_id,
             decision=decision,
-            reason=reason
+            explanation=explanation
         )
         
         logger.info(f"Claim {claim_id} processed with decision: {decision}")
         
         return {
-            "message": f"Claim submitted successfully with reference: {claim_id}",
+            "message": f"Claim submitted successfully",
             "claim_id": claim_id,
-            "decision": decision
+            "decision": decision,
+            "explanation" : explanation
         }
         
     except Exception as e:
@@ -135,7 +136,7 @@ async def get_claim_result(
         
         return ClaimDecisionResponse(
             decision=db_claim.decision,
-            explanation=db_claim.reason
+            explanation=db_claim.explanation
         )
         
     except HTTPException:

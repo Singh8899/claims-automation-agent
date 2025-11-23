@@ -1,18 +1,14 @@
 import logging
-import os
 from io import BytesIO
 
 from fastapi import UploadFile
 
 from minio.error import S3Error
 
-from .client import minio_client
-
-MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "claims-bucket")
+from .client import MINIO_BUCKET_NAME, minio_client
 
 # Configure logging
 logger = logging.getLogger("src.minio")
-logger.setLevel(logging.INFO)
 
 
 async def upload_file_to_minio(file: UploadFile, claim_id: int, filename: str = None) -> str:
@@ -42,7 +38,7 @@ async def upload_file_to_minio(file: UploadFile, claim_id: int, filename: str = 
         raise
 
 
-def _get_file_from_minio(object_path: str):
+def get_file_from_minio(object_path: str):
     try:
         response = minio_client.get_object(MINIO_BUCKET_NAME, object_path)
         logger.info(f"File retrieved: {object_path}")
@@ -52,12 +48,8 @@ def _get_file_from_minio(object_path: str):
         raise
 
 
-async def get_file_from_minio(object_path: str):
-    return _get_file_from_minio(object_path)
-
-
 def get_file_from_minio_sync(object_path: str):
-    return _get_file_from_minio(object_path)
+    return get_file_from_minio(object_path)
 
 
 def get_image_from_minio(claim_id: str) -> bytes:
