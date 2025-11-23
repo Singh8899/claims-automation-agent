@@ -1,6 +1,6 @@
 """"Utility functions for the agent"""
-import os
 import logging
+import os
 from io import BytesIO
 
 from minio import Minio

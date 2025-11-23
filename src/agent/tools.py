@@ -1,8 +1,8 @@
 """Define custom tools for the agent"""
 from langchain_core.tools import tool
 
-from src.minio.minio import get_image_from_minio, get_claim_metadata
 from src.agent.agent_utils import get_policy_document
+from src.minio.minio import get_claim_metadata, get_image_from_minio
 from src.utils.schemas import ClaimDecision, ClaimDecisionResponse
 from src.utils.vision_analyzer import query_image
 
