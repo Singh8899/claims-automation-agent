@@ -72,6 +72,49 @@ def get_image_from_minio(claim_id: str) -> bytes:
         raise
 
 
+def get_file_from_minio_sync(object_path: str):
+    try:
+        response = minio_client.get_object(MINIO_BUCKET_NAME, object_path)
+        logger.info(f"File retrieved: {object_path}")
+        return response
+    except S3Error as e:
+        logger.error(f"Error retrieving file {object_path}: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving file {object_path}: {e}")
+        raise
+
+
+def get_claim_metadata(claim_id: str) -> str:
+    """
+    Retrieve claim metadata from MinIO.
+    
+    Args:
+        claim_id: The claim identifier
+    
+    Returns:
+        Metadata content as string
+    
+    Raises:
+        Exception: If metadata retrieval fails
+    """
+    try:
+        metadata_path = f"{claim_id}/metadata.md"
+        response = get_file_from_minio_sync(metadata_path)
+        
+        if response is None:
+            logger.warning(f"Metadata not found for claim {claim_id}")
+            return "No metadata available"
+        
+        metadata_content = response.read().decode("utf-8")
+        logger.info(f"Metadata retrieved for claim {claim_id} ({len(metadata_content)} characters)")
+        return metadata_content
+        
+    except Exception as e:
+        logger.error(f"Error retrieving metadata for claim {claim_id}: {e}")
+        raise
+
+
 async def delete_file_from_minio(object_path: str) -> bool:
     try:
         minio_client.remove_object(MINIO_BUCKET_NAME, object_path)

@@ -1,9 +1,12 @@
 """"Utility functions for the agent"""
 import os
+import logging
 from io import BytesIO
 
 from minio import Minio
 from minio.error import S3Error
+
+logger = logging.getLogger("src.agent")
 
 # Initialize the MinIO client using environment variables from docker-compose.yml
 MINIO_CLIENT = Minio(
@@ -12,6 +15,27 @@ MINIO_CLIENT = Minio(
     secret_key=os.getenv("MINIO_SECRET_KEY"),
     secure=False # Use False for local Docker setup
 )
+
+def get_policy_document() -> str:
+    policy_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "policy",
+        "policy.md"
+    )
+    
+    try:
+        with open(policy_path, "r", encoding="utf-8") as f:
+            policy_text = f.read()
+        logger.info(f"Policy document retrieved successfully ({len(policy_text)} characters)")
+        return policy_text
+    except FileNotFoundError:
+        logger.error(f"Policy document not found at {policy_path}")
+        raise
+    except Exception as e:
+        logger.error(f"Error reading policy document: {e}")
+        raise
+
 
 def get_client_claim(claim_id: int):
     bytesio_claim = retrieve_file_from_minio(claim_id+"/claim.txt")
