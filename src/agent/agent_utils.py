@@ -33,7 +33,7 @@ def get_client_claim(claim_id: str) -> str:
     try:
         bytesio_claim = retrieve_file_from_minio(f"{claim_id}/claim.txt")
         return bytesio_claim.read().decode('utf-8')
-    except (UnicodeDecodeError, Exception) as e:
+    except Exception as e:
         logger.error(f"Error retrieving claim {claim_id}: {e}")
         raise
 
@@ -44,6 +44,6 @@ def retrieve_file_from_minio(object_path: str) -> BytesIO:
         response.close()
         response.release_conn()
         return file_data
-    except (S3Error, Exception) as e:
+    except Exception as e:
         logger.error(f"Error retrieving {object_path}: {e}")
         raise

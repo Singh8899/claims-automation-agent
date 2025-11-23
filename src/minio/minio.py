@@ -2,6 +2,7 @@ import logging
 from io import BytesIO
 
 from fastapi import UploadFile
+from PIL import Image
 
 from minio.error import S3Error
 
@@ -10,12 +11,47 @@ from .client import MINIO_BUCKET_NAME, minio_client
 # Configure logging
 logger = logging.getLogger("src.minio")
 
+# Supported image formats for upload
+SUPPORTED_IMAGE_FORMATS = {'.webp', '.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
+
+
+def convert_image_to_webp(file_data: bytes, original_filename: str) -> bytes:
+    try:
+        image = Image.open(BytesIO(file_data))
+        
+        if image.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+            image = background
+        elif image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        webp_buffer = BytesIO()
+        image.save(webp_buffer, format='WebP', quality=85)
+        webp_buffer.seek(0)
+        
+        logger.info(f"Image converted to WebP: {original_filename}")
+        return webp_buffer.getvalue()
+    
+    except Exception as e:
+        logger.error(f"Error converting image to WebP: {e}", exc_info=True)
+        raise
+
 
 async def upload_file_to_minio(file: UploadFile, claim_id: int, filename: str = None) -> str:
     try:
         name = filename or file.filename
-        object_name = f"{claim_id}/{name}"
         file_data = await file.read()
+        
+        # Convert images to WebP format
+        if name.lower().endswith(tuple(SUPPORTED_IMAGE_FORMATS)):
+            logger.info(f"Converting image to WebP: {name}")
+            file_data = convert_image_to_webp(file_data, name)
+            name = name.rsplit('.', 1)[0] + '.webp'
+        
+        object_name = f"{claim_id}/{name}"
         
         logger.info(f"Uploading file: {object_name}")
         
@@ -24,7 +60,7 @@ async def upload_file_to_minio(file: UploadFile, claim_id: int, filename: str = 
             object_name=object_name,
             data=BytesIO(file_data),
             length=len(file_data),
-            content_type=file.content_type
+            content_type='image/webp' if name.endswith('.webp') else file.content_type
         )
         
         logger.info(f"File uploaded successfully: {object_name}")
@@ -54,7 +90,7 @@ def get_file_from_minio_sync(object_path: str):
 
 def get_image_from_minio(claim_id: str) -> bytes:
     try:
-        object_path = f"{claim_id}/image.jpg"
+        object_path = f"{claim_id}/image.webp"
         response = minio_client.get_object(MINIO_BUCKET_NAME, object_path)
         image_bytes = response.read()
         response.close()

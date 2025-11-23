@@ -49,7 +49,7 @@ async def root():
 async def process_claim(
     claim_message: UploadFile = File(..., description="User claim (.txt file)"),
     claim_metadata: UploadFile = File(..., description="User metadata (.md file)"),
-    claim_image: UploadFile = File(..., description="Image supporting the claim (.webp file)"),
+    claim_image: UploadFile = File(..., description="Image supporting the claim (.webp, .jpg, .jpeg, .png, .bmp, .tiff)"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -72,19 +72,20 @@ async def process_claim(
         # Upload claim message with standardized name
         message_path = await upload_file_to_minio(claim_message, claim_id, "claim.txt")
         metadata_path = await upload_file_to_minio(claim_metadata, claim_id, "metadata.md")
-        image_path = await upload_file_to_minio(claim_image, claim_id, "image.jpg")
+        image_path = await upload_file_to_minio(claim_image, claim_id, "image.webp")
         logger.info(f"Files uploaded for claim {claim_id}: {message_path}, {metadata_path}, {image_path}")
 
         response_dict = run_agent_query(claim_id)
         
-        # Handle both dict and string responses from agent
-        if isinstance(response_dict, dict):
-            decision = response_dict.get("decision", "UNCERTAIN")
-            explanation = response_dict.get("explanation", None)
-        else:
-            # If agent returns string, parse it as uncertain with the response as reason
-            decision = "UNCERTAIN"
-            explanation = str(response_dict)
+        # Validate response structure and extract fields
+        if "decision" not in response_dict:
+            raise ValueError("Agent response missing 'decision' field")
+        
+        decision = response_dict["decision"]
+        explanation = response_dict.get("explanation", "")
+        
+        if decision not in ["APPROVE", "DENY", "UNCERTAIN"]:
+            raise ValueError(f"Invalid decision value: {decision}")
         
         # Save claim decision to database
         await crud.create_claim(

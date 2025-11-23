@@ -3,10 +3,9 @@
 import logging
 import os
 import re
-from typing import Any
 
 from dotenv import find_dotenv, load_dotenv
-from langchain.agents import AgentState, create_agent
+from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 
 from .agent_utils import get_client_claim
@@ -35,7 +34,7 @@ agent = create_agent(
     system_prompt=PROMPT
 )
 
-def run_agent_query(claim_id: str):
+def run_agent_query(claim_id: str) -> dict:
     """Helper function to run a query with the agent"""
 
     client_claim = get_client_claim(claim_id)
