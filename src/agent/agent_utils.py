@@ -3,18 +3,10 @@ import logging
 import os
 from io import BytesIO
 
-from minio import Minio
 from minio.error import S3Error
+from src.minio.client import minio_client
 
 logger = logging.getLogger("src.agent")
-
-# Initialize the MinIO client using environment variables from docker-compose.yml
-MINIO_CLIENT = Minio(
-    os.getenv("MINIO_ENDPOINT"), 
-    access_key=os.getenv("MINIO_ACCESS_KEY"),
-    secret_key=os.getenv("MINIO_SECRET_KEY"),
-    secure=False # Use False for local Docker setup
-)
 
 def get_policy_document() -> str:
     policy_path = os.path.join(
@@ -37,38 +29,22 @@ def get_policy_document() -> str:
         raise
 
 
-def get_client_claim(claim_id: int):
-    bytesio_claim = retrieve_file_from_minio(claim_id+"/claim.txt")
+def get_client_claim(claim_id: int) -> str:
     try:
-        file_bytes = bytesio_claim.read()
-        file_string = file_bytes.decode('utf-8')
-    
-        return file_string
-        
-    except UnicodeDecodeError as e:
-        print(f"Error decoding bytes: Check the file's encoding! {e}")
-        return None
-    except Exception as e:
-        print(f"An unexpected error occurred during conversion: {e}")
-        return None
+        bytesio_claim = retrieve_file_from_minio(f"{claim_id}/claim.txt")
+        return bytesio_claim.read().decode('utf-8')
+    except (UnicodeDecodeError, Exception) as e:
+        logger.error(f"Error retrieving claim {claim_id}: {e}")
+        raise
 
-def retrieve_file_from_minio(object_path: str):
-    """
-    Retrieves the file object from MinIO based on its stored path.
-    """
-    bucket_name = os.getenv("MINIO_BUCKET_NAME") # claims-bucket
-    
+def retrieve_file_from_minio(object_path: str) -> BytesIO:
+    bucket_name = os.getenv("MINIO_BUCKET_NAME", "claims-bucket")
     try:
-        response = MINIO_CLIENT.get_object(bucket_name, object_path)
+        response = minio_client.get_object(bucket_name, object_path)
         file_data = BytesIO(response.read())
         response.close()
-        response.release_conn() 
-        
-        return file_data # This contains the raw bytes of the file (image, text, etc.)
-        
-    except S3Error as e:
-        print(f"Error retrieving file from MinIO: {e}")
-        return None
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        return None
+        response.release_conn()
+        return file_data
+    except (S3Error, Exception) as e:
+        logger.error(f"Error retrieving {object_path}: {e}")
+        raise

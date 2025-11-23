@@ -42,17 +42,22 @@ async def upload_file_to_minio(file: UploadFile, claim_id: int, filename: str = 
         raise
 
 
-async def get_file_from_minio(object_path: str):
+def _get_file_from_minio(object_path: str):
     try:
         response = minio_client.get_object(MINIO_BUCKET_NAME, object_path)
         logger.info(f"File retrieved: {object_path}")
         return response
-    except S3Error as e:
-        logger.error(f"Error retrieving file: {e}")
+    except (S3Error, Exception) as e:
+        logger.error(f"Error retrieving file {object_path}: {e}")
         raise
-    except Exception as e:
-        logger.error(f"Error retrieving file: {e}")
-        raise
+
+
+async def get_file_from_minio(object_path: str):
+    return _get_file_from_minio(object_path)
+
+
+def get_file_from_minio_sync(object_path: str):
+    return _get_file_from_minio(object_path)
 
 
 def get_image_from_minio(claim_id: str) -> bytes:
@@ -64,53 +69,21 @@ def get_image_from_minio(claim_id: str) -> bytes:
         response.release_conn()
         logger.info(f"Image retrieved for claim {claim_id}")
         return image_bytes
-    except S3Error as e:
+    except (S3Error, Exception) as e:
         logger.error(f"Error retrieving image for claim {claim_id}: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving image for claim {claim_id}: {e}")
-        raise
-
-
-def get_file_from_minio_sync(object_path: str):
-    try:
-        response = minio_client.get_object(MINIO_BUCKET_NAME, object_path)
-        logger.info(f"File retrieved: {object_path}")
-        return response
-    except S3Error as e:
-        logger.error(f"Error retrieving file {object_path}: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving file {object_path}: {e}")
         raise
 
 
 def get_claim_metadata(claim_id: str) -> str:
-    """
-    Retrieve claim metadata from MinIO.
-    
-    Args:
-        claim_id: The claim identifier
-    
-    Returns:
-        Metadata content as string
-    
-    Raises:
-        Exception: If metadata retrieval fails
-    """
     try:
         metadata_path = f"{claim_id}/metadata.md"
-        response = get_file_from_minio_sync(metadata_path)
-        
-        if response is None:
-            logger.warning(f"Metadata not found for claim {claim_id}")
-            return "No metadata available"
-        
+        response = minio_client.get_object(MINIO_BUCKET_NAME, metadata_path)
         metadata_content = response.read().decode("utf-8")
+        response.close()
+        response.release_conn()
         logger.info(f"Metadata retrieved for claim {claim_id} ({len(metadata_content)} characters)")
         return metadata_content
-        
-    except Exception as e:
+    except (S3Error, Exception) as e:
         logger.error(f"Error retrieving metadata for claim {claim_id}: {e}")
         raise
 
@@ -120,11 +93,8 @@ async def delete_file_from_minio(object_path: str) -> bool:
         minio_client.remove_object(MINIO_BUCKET_NAME, object_path)
         logger.info(f"File deleted: {object_path}")
         return True
-    except S3Error as e:
-        logger.error(f"Error deleting file: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Error deleting file: {e}")
+    except (S3Error, Exception) as e:
+        logger.error(f"Error deleting file {object_path}: {e}")
         raise
 
 
@@ -135,9 +105,6 @@ async def list_files_in_minio(claim_id: int):
         file_list = [obj.object_name for obj in objects]
         logger.info(f"Listed {len(file_list)} files for claim {claim_id}")
         return file_list
-    except S3Error as e:
-        logger.error(f"Error listing files: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Error listing files: {e}")
+    except (S3Error, Exception) as e:
+        logger.error(f"Error listing files for claim {claim_id}: {e}")
         raise

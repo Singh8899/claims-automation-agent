@@ -11,7 +11,7 @@ load_dotenv(find_dotenv())
 
 
 def main():
-    # Initialize MinIO client (database initialization handled by app lifespan)
+    # Initialize Minio Client
     MinIOClient()
     
     # Run the API server
