@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -18,6 +19,8 @@ engine = create_async_engine(
     echo=os.getenv("SQL_ECHO", "False").lower() == "true",
     future=True,
     pool_pre_ping=True,
+    pool_recycle=3600,  # Recycle connections after 1 hour
+    connect_args={"server_settings": {"application_name": "claims-agent"}},
 )
 
 async_session = sessionmaker(
@@ -29,11 +32,13 @@ async_session = sessionmaker(
 
 
 async def init_db():
+    """Initialize database tables"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
 async def get_db():
+    """Database session dependency for FastAPI"""
     async with async_session() as session:
         try:
             yield session
@@ -41,5 +46,12 @@ async def get_db():
             await session.close()
 
 
-async def close_db():
+@asynccontextmanager
+async def lifespan():
+    """Lifespan context manager for app startup and shutdown"""
+    # Startup
+    await init_db()
+    yield
+    # Shutdown
     await engine.dispose()
+

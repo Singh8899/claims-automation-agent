@@ -10,13 +10,18 @@ from .client import minio_client
 
 MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "claims-bucket")
 
-logger = logging.getLogger(__name__)
+# Configure logging
+logger = logging.getLogger("src.minio")
+logger.setLevel(logging.INFO)
 
 
-async def upload_file_to_minio(file: UploadFile, claim_id: int) -> str:
+async def upload_file_to_minio(file: UploadFile, claim_id: int, filename: str = None) -> str:
     try:
-        object_name = f"{claim_id}/{file.filename}"
+        name = filename or file.filename
+        object_name = f"{claim_id}/{name}"
         file_data = await file.read()
+        
+        logger.info(f"Uploading file: {object_name}")
         
         minio_client.put_object(
             bucket_name=MINIO_BUCKET_NAME,
@@ -26,14 +31,14 @@ async def upload_file_to_minio(file: UploadFile, claim_id: int) -> str:
             content_type=file.content_type
         )
         
-        logger.info(f"File uploaded: {object_name}")
+        logger.info(f"File uploaded successfully: {object_name}")
         return object_name
     
     except S3Error as e:
-        logger.error(f"S3 Error during upload: {e}")
+        logger.error(f"S3 Error during upload: {e}", exc_info=True)
         raise
     except Exception as e:
-        logger.error(f"Error during file upload: {e}")
+        logger.error(f"Error during file upload: {e}", exc_info=True)
         raise
 
 
@@ -47,6 +52,23 @@ async def get_file_from_minio(object_path: str):
         raise
     except Exception as e:
         logger.error(f"Error retrieving file: {e}")
+        raise
+
+
+def get_image_from_minio(claim_id: str) -> bytes:
+    try:
+        object_path = f"{claim_id}/image.jpg"
+        response = minio_client.get_object(MINIO_BUCKET_NAME, object_path)
+        image_bytes = response.read()
+        response.close()
+        response.release_conn()
+        logger.info(f"Image retrieved for claim {claim_id}")
+        return image_bytes
+    except S3Error as e:
+        logger.error(f"Error retrieving image for claim {claim_id}: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving image for claim {claim_id}: {e}")
         raise
 
 
