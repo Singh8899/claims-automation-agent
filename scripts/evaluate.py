@@ -73,6 +73,9 @@ async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
             "is_correct": is_correct
         }
         
+        if 'acceptable_decision' in expected:
+            result["expected_acceptable_decision"] = expected['acceptable_decision']
+        
         status = "CORRECT" if is_correct else "WRONG"
         logger.info(f"Claim {claim_num}: {status} - Predicted: {predicted_decision}, Expected: {expected_decision}")
         
@@ -101,15 +104,17 @@ async def evaluate_dataset(dataset_path: str, output_path: str, api_url: str):
     logger.info(f"Starting eval")
     logger.info("="*30)
     
-    results = []
-    
+    # Collect all tasks to run concurrently
+    tasks = []
     for i in range(1, 26):
         claim_dir = dataset_dir / f"claim {i}"
         if claim_dir.exists():
-            result = await process_claim(claim_dir, i, api_url)
-            results.append(result)
+            tasks.append(process_claim(claim_dir, i, api_url))
         else:
             logger.warning(f"Claim directory not found: {claim_dir}")
+    
+    # Run all claims concurrently
+    results = await asyncio.gather(*tasks)
     
     total_claims = len(results)
     correct_predictions = sum(1 for r in results if r.get('is_correct', False))
