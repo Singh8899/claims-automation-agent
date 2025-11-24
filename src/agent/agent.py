@@ -1,5 +1,3 @@
-"""Set up the agent with custom tools"""
-
 import asyncio
 import logging
 import os

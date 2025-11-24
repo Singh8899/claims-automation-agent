@@ -73,10 +73,12 @@ def get_info_from_image(claim_id: str, query: str) -> str:
                - Names and reference numbers
         
     Returns:
-        Information extracted from the image document
+        Information extracted from the image document, or a message if no image was provided
     """
     try:
         image_bytes = get_image_from_minio(claim_id)
+        if image_bytes is None:
+            return "No image document has been provided by the user for this claim."
         image_info = query_image(image_bytes, query)
         return image_info
     except Exception as e:

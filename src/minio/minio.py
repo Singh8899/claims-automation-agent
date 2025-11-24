@@ -100,7 +100,13 @@ def get_image_from_minio(claim_id: str) -> bytes:
         response.release_conn()
         logger.info(f"Image retrieved for claim {claim_id}")
         return image_bytes
-    except (S3Error, Exception) as e:
+    except S3Error as e:
+        if 'NoSuchKey' in str(e) or 'Not Found' in str(e):
+            logger.info(f"No image found for claim {claim_id}")
+            return None
+        logger.error(f"Error retrieving image for claim {claim_id}: {e}")
+        raise
+    except Exception as e:
         logger.error(f"Error retrieving image for claim {claim_id}: {e}")
         raise
 

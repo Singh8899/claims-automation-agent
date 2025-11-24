@@ -1,11 +1,4 @@
-asyncpg==0.30.0
-fastapi==0.121.3
-langchain-openai==1.0.3
-langchain==1.0.8
-minio==7.2.18
-openai==2.8.1
-python-dotenv==1.2.1
-python-multipart==0.0.20
-SQLAlchemy==2.0.44
-uvicorn==0.38.0
-Pillow==12.0.0
+httpx==0.28.1
+matplotlib==3.10.7
+numpy==2.3.5
+seaborn==0.13.2

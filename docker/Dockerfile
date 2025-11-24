@@ -5,9 +5,9 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 
 # Requirements copy and installation
-COPY requirements.txt .
+COPY requirements_docker.txt .
 RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir -r requirements.txt 
+ && pip install --no-cache-dir -r requirements_docker.txt 
 
 # Copy needed codebase
 COPY src/ ./src/

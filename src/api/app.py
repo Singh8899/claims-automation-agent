@@ -49,7 +49,7 @@ async def root():
 async def process_claim(
     claim_message: UploadFile = File(..., description="User claim (.txt file)"),
     claim_metadata: UploadFile = File(..., description="User metadata (.md file)"),
-    claim_image: UploadFile = File(..., description="Image supporting the claim (.webp, .jpg, .jpeg, .png, .bmp, .tiff)"),
+    claim_image: UploadFile = File(None, description="Image supporting the claim (.webp, .jpg, .jpeg, .png, .bmp, .tiff) - Optional"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -58,7 +58,7 @@ async def process_claim(
     Args:
         claim_message: Txt file containing the claim description
         claim_metadata: .md file with claim metadata
-        claim_image: .webp file supporting the claim
+        claim_image: Optional image file supporting the claim
         db: Database session
     Returns:
         Dictionary with claim reference ID and status
@@ -72,8 +72,13 @@ async def process_claim(
         # Upload claim message with standardized name
         message_path = await upload_file_to_minio(claim_message, claim_id, "claim.txt")
         metadata_path = await upload_file_to_minio(claim_metadata, claim_id, "metadata.md")
-        image_path = await upload_file_to_minio(claim_image, claim_id, "image.webp")
-        logger.info(f"Files uploaded for claim {claim_id}: {message_path}, {metadata_path}, {image_path}")
+        
+        image_path = None
+        if claim_image:
+            image_path = await upload_file_to_minio(claim_image, claim_id, "image.webp")
+            logger.info(f"Files uploaded for claim {claim_id}: {message_path}, {metadata_path}, {image_path}")
+        else:
+            logger.info(f"Files uploaded for claim {claim_id}: {message_path}, {metadata_path} (no image provided)")
 
         response = await run_agent_query(claim_id)
         
