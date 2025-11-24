@@ -24,10 +24,8 @@ def generate_confusion_matrix_image(results: List[Dict[str, Any]], output_path: 
     matrix_dict = calculate_confusion_matrix(results)
     decisions = ["APPROVE", "DENY", "UNCERTAIN"]
     
-    # Convert to numpy array
     matrix = np.array([[matrix_dict[exp][pred] for pred in decisions] for exp in decisions])
     
-    # Create figure
     plt.figure(figsize=(10, 8))
     sns.heatmap(matrix, annot=True, fmt='d', cmap='Blues', 
                 xticklabels=decisions, yticklabels=decisions,
@@ -37,7 +35,6 @@ def generate_confusion_matrix_image(results: List[Dict[str, Any]], output_path: 
     plt.ylabel('Expected Decision', fontsize=12, fontweight='bold')
     plt.title('Confusion Matrix - Claims Processing Evaluation', fontsize=14, fontweight='bold', pad=20)
     
-    # Add accuracy text
     total = matrix.sum()
     correct = np.trace(matrix)
     accuracy = (correct / total * 100) if total > 0 else 0

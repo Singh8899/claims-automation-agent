@@ -6,7 +6,7 @@ from pathlib import Path
 
 import httpx
 
-from src.evaluation.metrics import generate_confusion_matrix_image
+from src.utils.metrics import generate_confusion_matrix_image
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,7 +20,6 @@ async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
         # Read claim description
         description_path = claim_dir / "description.txt"
         
-        # Read metadata (supporting documents)
         metadata_files = list(claim_dir.glob("*.md"))
         metadata_content = ""
         for md_file in metadata_files:
@@ -28,7 +27,6 @@ async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
                 with open(md_file, 'r', encoding='utf-8') as f:
                     metadata_content += f"\n\n### {md_file.name}\n\n" + f.read()
         
-        # Find image file if exists
         image_extensions = ['*.png', '*.jpg', '*.jpeg', '*.webp', '*.bmp', '*.tiff']
         image_file = None
         for ext in image_extensions:
@@ -37,7 +35,6 @@ async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
                 image_file = images[0]
                 break
         
-        # Prepare files for API request
         files = {
             'claim_message': ('description.txt', open(description_path, 'rb'), 'text/plain'),
             'claim_metadata': ('metadata.md', metadata_content.encode('utf-8'), 'text/markdown')
@@ -49,25 +46,21 @@ async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
         else:
             logger.info(f"Claim {claim_num}: Submitting without image")
         
-        # Call API endpoint
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(f"{api_url}/claims", files=files)
             response.raise_for_status()
             api_response = response.json()
         
-        # Read expected answer
         answer_path = claim_dir / "answer.json"
         with open(answer_path, 'r') as f:
             expected = json.load(f)
         
-        # Extract results from API response
         predicted_decision = api_response.get('decision')
         predicted_explanation = api_response.get('explanation', '')
         expected_decision = expected['decision']
         
         is_correct = predicted_decision == expected_decision
         
-        # Check if acceptable_decision exists
         if not is_correct and 'acceptable_decision' in expected:
             is_correct = predicted_decision == expected['acceptable_decision']
         
@@ -83,7 +76,6 @@ async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
         status = "CORRECT" if is_correct else "WRONG"
         logger.info(f"Claim {claim_num}: {status} - Predicted: {predicted_decision}, Expected: {expected_decision}")
         
-        # Close file handles
         for file_tuple in files.values():
             if hasattr(file_tuple[1], 'close'):
                 file_tuple[1].close()
@@ -119,7 +111,6 @@ async def evaluate_dataset(dataset_path: str, output_path: str, api_url: str):
         else:
             logger.warning(f"Claim directory not found: {claim_dir}")
     
-    # Print minimal summary
     total_claims = len(results)
     correct_predictions = sum(1 for r in results if r.get('is_correct', False))
     accuracy = (correct_predictions / total_claims * 100) if total_claims > 0 else 0
@@ -128,7 +119,6 @@ async def evaluate_dataset(dataset_path: str, output_path: str, api_url: str):
     output_dir = Path(output_path)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Save confusion matrix image
     confusion_matrix_path = output_dir / "confusion_matrix.png"
     generate_confusion_matrix_image(results, str(confusion_matrix_path))
     
