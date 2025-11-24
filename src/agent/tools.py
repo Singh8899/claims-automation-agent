@@ -4,7 +4,7 @@ from langchain_core.tools import tool
 from src.agent.agent_utils import get_policy_document
 from src.minio.minio import get_claim_metadata, get_image_from_minio
 from src.utils.schemas import ClaimDecision, ClaimDecisionResponse
-from src.utils.vision_analyzer import query_image
+from src.utils.vision_analyzer import query_image_ocr, query_image_forgery
 
 
 @tool(return_direct=False)
@@ -60,33 +60,81 @@ def present_decision(decision: ClaimDecision, explanation: str) -> ClaimDecision
 @tool
 def get_info_from_image(claim_id: str, query: str) -> str:
     """
-    Retrieves textual information from claim documents using vision model.
-    Can be called multiple times if further information is needed, but prefer asking comprehensive questions to minimize calls.
+    Extracts textual information from claim documents using OCR vision model.
+    Use this tool to READ and EXTRACT information from documents.
     
     Args:
         claim_id: claim id that is being analyzed
-        query: The question to ask the vision model about the document.
-               Consider asking for multiple pieces of information in one query when relevant.
+        query: The question asking for specific information to extract.
                
-               Examples:
-               - "Describe this document: Is it plain text or a scanned/printed medical form? What is the patient name? What dates are shown?"
-               - "What medical findings are stated and does it indicate the patient is fit/healthy or unfit to travel?"
-               - "Is there a physician signature and hospital stamp visible?"
+               Good examples:
+               - "Is this a plain text document on blank page, or an official medical form with letterhead?"
+               - "What is the exact patient name shown on this document?"
+               - "What dates are mentioned in this document (admission, discharge, consultation, issuance)?"
+               - "What medical findings, diagnosis, or fitness statements are written in this document?"
+               - "Are there physician signatures visible? Are there hospital stamps visible? Are any critical fields blank?"
         
     Returns:
-        Information extracted from the image document, or a message if no image was provided
+        Extracted information from the document based on the query
     """
     try:
         image_bytes = get_image_from_minio(claim_id)
         if image_bytes is None:
             return "No image document has been provided by the user for this claim."
-        image_info = query_image(image_bytes, query)
+        image_info = query_image_ocr(image_bytes, query)
+        return image_info
+    except Exception as e:
+        return f"Error retrieving/analyzing image for claim {claim_id}: {str(e)}"
+
+@tool
+def check_image_forgery(claim_id: str, query: str) -> str:
+    """
+    Analyzes document authenticity and detects potential forgery or manipulation.
+    Use this tool FIRST before extracting information to verify the document is legitimate.
+    
+    IMPORTANT: Always provide CONTEXT in your query about what document is expected.
+    
+    Args:
+        claim_id: claim id that is being analyzed
+        query: Question about document authenticity WITH CONTEXT about the claim.
+               
+               REQUIRED FORMAT:
+               "Analyze this document for authenticity. Context: This claim is for [reason] on [date]. The document should be a [expected document type].
+               
+               Check for fraud indicators:
+               - Is this plain typed text on blank page (NOT acceptable) or official medical form with letterhead?
+               - Are there signs of digital manipulation, photoshopped stamps, or overlaid signatures?
+               - Are critical fields blank (like 'discharged on ___')?
+               - Are date stamps inconsistent or wrong format/year?
+               - Does document format match expected type?
+               
+               Assess: DEFINITIVE FRAUD, SUSPICIOUS, or LEGITIMATE"
+               
+               Good example:
+               "Analyze for authenticity. Context: Medical emergency claim for hospitalization on 2023-08-13. Should be hospital admission/discharge certificate. Check: Is this plain text or official form? Any photoshopped stamps? Blank critical fields? Date inconsistencies? Assess: DEFINITIVE FRAUD, SUSPICIOUS, or LEGITIMATE."
+               
+               This tool detects:
+               - Plain text documents (automatic fraud)
+               - Photoshopped/digitally added stamps or signatures
+               - Blank critical fields ("discharged on ___", "patient: ___")
+               - Inconsistent or anachronistic dating
+               - Wrong document type for the claim
+        
+    Returns:
+        Assessment of document authenticity: DEFINITIVE FRAUD, SUSPICIOUS, or LEGITIMATE with specific observations
+    """
+    try:
+        image_bytes = get_image_from_minio(claim_id)
+        if image_bytes is None:
+            return "No image document has been provided by the user for this claim."
+        image_info = query_image_forgery(image_bytes, query)
         return image_info
     except Exception as e:
         return f"Error retrieving/analyzing image for claim {claim_id}: {str(e)}"
 
 
 tools = [
+    check_image_forgery,
     get_policy,
     get_metadata,
     get_info_from_image,
