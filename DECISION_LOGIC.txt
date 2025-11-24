@@ -84,5 +84,6 @@ There are some improvements i would do if i had enough resources:
 
 The first 2 are more to improve cost, accuracy(hopefully with good models) and latency (as we know llm are not the fastest model on the market)
 
-
-
+CODING AGENT USE
+================
+The system prompt used and other llm-based tool prompts are re-used from previous projects and re-alligned with Gemini3Pro.
