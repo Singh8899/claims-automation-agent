@@ -1,0 +1,88 @@
+DECISION LOGIC
+
+ARCHITECTURE CHOICES
+====================
+Instead of standard FastAPI, I dockerized it, with parallel support to MinIO(similar to S3 bucket) and PostgreSQ. The documentation uploaded when processing a claim is saved into MinIO assigning a UID number and saving the processing results to PostgreSQL db. 
+
+CORE COMPONENTS
+===============
+1. LangChain ReAct Agent
+   I used the latest version of langchain where an agent stucture can be defined by passing the system prompt, the tools and the core agent llm
+   
+2. Custom tools: this and the system prompt are most of the work
+   - get_policy(): Retrieves insurance policy
+   - get_metadata(claim_id): Fetches booking/claim details
+   - check_image_forgery(claim_id, query): Analyzes document authenticity and detects fraud
+   - get_info_from_image(claim_id, query): Extracts information from documents with OCR vision AI
+   - present_decision(decision, explanation): Submits final decision, terminating the agent execution
+   
+3. Vision analyzer
+   Two specialized vision models using gpt-5-mini, query_image_ocr to extract image doc information and query_image_forgery to detect any anomaly or forgery in the image doc
+   
+4. Security filters 
+   Standard filter to protect from basic prompt injections with patter based and fuzzy based logic,and also output validation in case of any prompt or system info
+
+DECISION WORKFLOW
+=========================
+1. Retrieve policy rules -> get_policy()
+2. Gather Claim Metadata -> get_metadata(claim_id)
+3. Check Coverage -> Verify if claim reason is covered by policy
+4A. Verify document authenticity -> check_image_forgery(claim_id, query) with context
+4B. Extract document information -> get_info_from_image(claim_id, query) if not definitive fraud
+5. Apply policy rules -> Compare evidence against policy requirements
+6. Make final decision -> present_decision(APPROVE/DENY/UNCERTAIN, explanation)
+
+FRAUD DETECTION
+===============
+There are different logic i implemented in the overall agent<->tools logic to detect frauds:
+- Plain text documents (typed text on blank page without official medical form layout)
+- Blank template fields with underscores
+- Obviously photoshopped stamps/signatures
+- Major date/other contradictions
+- Complete identity mismatch or redacted names that don't match
+
+And in particular there are several factors that the agent pays attention to, for example:
+- Certificate issued significantly before/after medical event.
+- Missing both physician signature and hospital stamp
+- Blank discharge date
+- Treatment/consultation date after travel date
+
+
+PERFORMANCE METRICS
+===================
+- (considering also acceptable decisions) Accuracy: 92% (23/25 correct decisions)
+- (Exact decisions) Accuracy: 88% (22/25 correct decisions)
+- Average execution time: 45.72 seconds per claim
+- Average explanation quality score: 0.76 (17 evaluated)
+- Common challenges: Document authenticity assessment, name matching flexibility, dating ambiguities
+
+DESIGN CHOICES
+==================
+1. Policy-first approach - check coverage before document analysis
+2. Two-phase document analysis - authenticity check BEFORE information extraction
+3. Separate inference, so specialized prompts for OCR vs fraud detection
+4. Conservative fraud detection
+5. Flexible name matching, accommodate cultural variations and spelling differences
+6. Security-first, prompt injection detection with fuzzy matching, output sanitization
+7. Contextual forgery detection, agent provides claim context to vision model
+8. Return-direct decision tool where workflow terminates immediately after present_decision
+
+EVALUATION FRAMEWORK
+====================
+- Automated testing via scripts/evaluate.py
+- Tests against takehome-test-data/ dataset (25 claims)
+- Metrics tracked: accuracy, execution time, explanation quality
+- Results saved to results/eval_results.json
+- Per-claim analysis with explanation scoring
+
+FUTURE IMPLEMENTATIONS
+======================
+There are some improvements i would do if i had enough resources:
+- A ML model to detect image documents forgery, which can be inferred in paralled with the current llm-based approach
+- A good enough OCR model to extract informations from documentation, with good capabilities in different languages, handwriting, ecc....
+- Benchmark on a bigger test set would give more insights....
+
+The first 2 are more to improve cost, accuracy(hopefully with good models) and latency (as we know llm are not the fastest model on the market)
+
+
+
