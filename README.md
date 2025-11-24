@@ -47,18 +47,58 @@ docker compose up -d
 
 The API will be available at `http://localhost:8000`
 
-## Usage
+## API Usage
 
-### Submit a Claim
+### 1. Submit a Claim
+
+Submit a new insurance claim with description, metadata, and optional image:
 
 ```bash
 curl -X POST http://localhost:8000/claims \
-  -H "Content-Type: application/json" \
-  -d '{
-    "claim_id": "claim_001",
-    "description": "Medical emergency prevented travel",
-    "supporting_document": "base64_encoded_image"
-  }'
+  -F "claim_message=@description.txt" \
+  -F "claim_metadata=@metadata.md" \
+  -F "claim_image=@supporting_image.jpg"
+```
+
+Response:
+```json
+{
+  "message": "Claim submitted successfully",
+  "claim_id": "uuid-claim-id",
+  "decision": "APPROVE|DENY|UNCERTAIN",
+  "explanation": "Detailed explanation of the decision"
+}
+```
+
+### 2. Get Claim Result
+
+Retrieve the decision and explanation for a specific claim:
+
+```bash
+curl -X GET http://localhost:8000/claims/{claim_id}
+```
+
+Response:
+```json
+{
+  "decision": "APPROVE|DENY|UNCERTAIN",
+  "explanation": "Detailed explanation of the decision"
+}
+```
+
+### 3. List All Claims
+
+Get a paginated list of all claim IDs:
+
+```bash
+curl -X GET "http://localhost:8000/claims?skip=0&limit=100"
+```
+
+Response:
+```json
+{
+  "claims": ["claim_id_1", "claim_id_2", "claim_id_3"]
+}
 ```
 
 ## Evaluation
