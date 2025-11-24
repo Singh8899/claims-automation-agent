@@ -61,16 +61,18 @@ def present_decision(decision: ClaimDecision, explanation: str) -> ClaimDecision
 def get_info_from_image(claim_id: str, query: str) -> str:
     """
     Retrieves textual information from claim documents using vision model.
-    Can be called multiple times for different documents or different queries.
+    Can be called multiple times for different information from the document.
     
     Args:
         claim_id: claim id that is being analyzed
         query: The detailed question to ask the vision model about the document
-               Should ask specifically about required information like:
-               - Document type and authenticity
-               - Dates and amounts
-               - Required signatures or stamps
-               - Names and reference numbers
+               Examples of useful queries:
+               - "What type of document is this? Is it a scanned/printed document or plain text?"
+               - "What is the patient name on this document?"
+               - "What dates are mentioned? Extract admission date, discharge date, certificate date."
+               - "What medical condition or diagnosis is stated?"
+               - "Does this state the patient is fit/healthy or unfit to travel?"
+               - "Is there a physician signature and hospital stamp visible?"
         
     Returns:
         Information extracted from the image document, or a message if no image was provided
@@ -85,7 +87,6 @@ def get_info_from_image(claim_id: str, query: str) -> str:
         return f"Error retrieving/analyzing image for claim {claim_id}: {str(e)}"
 
 
-# List of tools to be used by the agent
 tools = [
     get_policy,
     get_metadata,
