@@ -75,17 +75,10 @@ async def process_claim(
         image_path = await upload_file_to_minio(claim_image, claim_id, "image.webp")
         logger.info(f"Files uploaded for claim {claim_id}: {message_path}, {metadata_path}, {image_path}")
 
-        response_dict = run_agent_query(claim_id)
+        response = await run_agent_query(claim_id)
         
-        # Validate response structure and extract fields
-        if "decision" not in response_dict:
-            raise ValueError("Agent response missing 'decision' field")
-        
-        decision = response_dict["decision"]
-        explanation = response_dict.get("explanation", "")
-        
-        if decision not in ["APPROVE", "DENY", "UNCERTAIN"]:
-            raise ValueError(f"Invalid decision value: {decision}")
+        decision = response.decision.value  # Convert enum to string
+        explanation = response.explanation or ""
         
         # Save claim decision to database
         await crud.create_claim(

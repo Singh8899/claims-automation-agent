@@ -1,12 +1,16 @@
 """Set up the agent with custom tools"""
 
+import asyncio
 import logging
 import os
 import re
+from functools import partial
 
 from dotenv import find_dotenv, load_dotenv
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
+
+from src.utils.schemas import ClaimDecision, ClaimDecisionResponse
 
 from .agent_utils import get_client_claim
 from .prompt import PROMPT
@@ -34,15 +38,14 @@ agent = create_agent(
     system_prompt=PROMPT
 )
 
-def run_agent_query(claim_id: str) -> dict:
-    """Helper function to run a query with the agent"""
-
-    client_claim = get_client_claim(claim_id)
+def _run_agent_sync(claim_id: str, client_claim: str) -> ClaimDecisionResponse:
     # Check for prompt injection
     if prompt_injection_filter.detect_injection(client_claim):
-        return {"decision": "DENY", "explanation": "Potential prompt injection detected", "claim_id": claim_id}
+        return ClaimDecisionResponse(
+            decision=ClaimDecision.DENY,
+            explanation="Potential prompt injection detected"
+        )
     
-    # Format claim with correct ID (no extra 'f' prefix)
     client_claim_with_id = f"###CLAIM_ID###:{claim_id}\n###CLAIM###:\n{client_claim}"
     
     try:
@@ -83,19 +86,39 @@ def run_agent_query(claim_id: str) -> dict:
         
         if decision:
             logger.info(f"Agent decision for claim {claim_id}: {decision}")
-            return {
-                "decision": decision,
-                "explanation": explanation,
-                "claim_id": claim_id
-            }
+            return ClaimDecisionResponse(
+                decision=ClaimDecision[decision],
+                explanation=explanation
+            )
         else:
             logger.warning(f"Could not parse decision for claim {claim_id}")
-            return {
-                "decision": "UNCERTAIN",
-                "explanation": "Could not parse a valid decision from agent response",
-                "claim_id": claim_id
-            }
+            return ClaimDecisionResponse(
+                decision=ClaimDecision.UNCERTAIN,
+                explanation="Could not parse a valid decision from agent response"
+            )
         
     except Exception as e:
         logger.error(f"Error in agent processing: {str(e)}", exc_info=True)
-        return {"decision": "UNCERTAIN", "explanation": f"Agent processing error: {str(e)}", "claim_id": claim_id}
+        return ClaimDecisionResponse(
+            decision=ClaimDecision.UNCERTAIN,
+            explanation=f"Agent processing error: {str(e)}"
+        )
+
+
+async def run_agent_query(claim_id: str) -> ClaimDecisionResponse:
+    """Async wrapper to run agent query"""
+    try:
+        loop = asyncio.get_event_loop()
+        client_claim = await loop.run_in_executor(None, get_client_claim, claim_id)
+        
+        result = await loop.run_in_executor(
+            None,
+            partial(_run_agent_sync, claim_id, client_claim)
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error in async agent processing: {str(e)}", exc_info=True)
+        return ClaimDecisionResponse(
+            decision=ClaimDecision.UNCERTAIN,
+            explanation=f"Agent processing error: {str(e)}"
+        )

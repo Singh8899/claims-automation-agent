@@ -11,7 +11,7 @@ from .client import MINIO_BUCKET_NAME, minio_client
 # Configure logging
 logger = logging.getLogger("src.minio")
 
-# Supported image formats for upload
+# Supported image formats
 SUPPORTED_IMAGE_FORMATS = {'.webp', '.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
 
 
@@ -45,11 +45,14 @@ async def upload_file_to_minio(file: UploadFile, claim_id: int, filename: str = 
         name = filename or file.filename
         file_data = await file.read()
         
-        # Convert images to WebP format
-        if name.lower().endswith(tuple(SUPPORTED_IMAGE_FORMATS)):
-            logger.info(f"Converting image to WebP: {name}")
-            file_data = convert_image_to_webp(file_data, name)
-            name = name.rsplit('.', 1)[0] + '.webp'
+        file_extension = name.lower().rsplit('.', 1)[-1] if '.' in name else ''
+        if f'.{file_extension}' in SUPPORTED_IMAGE_FORMATS:
+            if file_extension != 'webp':
+                logger.info(f"Converting image to WebP: {name}")
+                file_data = convert_image_to_webp(file_data, name)
+                name = name.rsplit('.', 1)[0] + '.webp'
+            else:
+                logger.info(f"Image already in WebP format, skipping conversion: {name}")
         
         object_name = f"{claim_id}/{name}"
         

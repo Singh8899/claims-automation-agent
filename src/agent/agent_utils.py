@@ -1,10 +1,8 @@
 """"Utility functions for the agent"""
 import logging
 import os
-from io import BytesIO
 
-from minio.error import S3Error
-from src.minio.client import MINIO_BUCKET_NAME, minio_client
+from src.minio.minio import get_file_from_minio
 
 logger = logging.getLogger("src.agent")
 
@@ -31,19 +29,13 @@ def get_policy_document() -> str:
 
 def get_client_claim(claim_id: str) -> str:
     try:
-        bytesio_claim = retrieve_file_from_minio(f"{claim_id}/claim.txt")
-        return bytesio_claim.read().decode('utf-8')
-    except Exception as e:
-        logger.error(f"Error retrieving claim {claim_id}: {e}")
-        raise
-
-def retrieve_file_from_minio(object_path: str) -> BytesIO:
-    try:
-        response = minio_client.get_object(MINIO_BUCKET_NAME, object_path)
-        file_data = BytesIO(response.read())
+        object_path = f"{claim_id}/claim.txt"
+        response = get_file_from_minio(object_path)
+        claim_text = response.read().decode('utf-8')
         response.close()
         response.release_conn()
-        return file_data
+        logger.info(f"Claim retrieved for {claim_id}")
+        return claim_text
     except Exception as e:
-        logger.error(f"Error retrieving {object_path}: {e}")
+        logger.error(f"Error retrieving claim {claim_id}: {e}")
         raise
