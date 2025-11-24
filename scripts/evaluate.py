@@ -2,11 +2,14 @@ import argparse
 import asyncio
 import json
 import logging
+import time
 from pathlib import Path
 
 import httpx
+from dotenv import find_dotenv, load_dotenv
 
-from src.utils.metrics import generate_confusion_matrix_image
+from src.utils.metrics import (evaluate_explanation_match,
+                               generate_confusion_matrix_image)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,7 +20,8 @@ logger = logging.getLogger("Evaluation")
 
 async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
     try:
-        # Read claim description
+        start_time = time.time()
+        
         description_path = claim_dir / "description.txt"
         
         metadata_files = list(claim_dir.glob("*.md"))
@@ -51,6 +55,8 @@ async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
             response.raise_for_status()
             api_response = response.json()
         
+        execution_time = time.time() - start_time
+        
         answer_path = claim_dir / "answer.json"
         with open(answer_path, 'r') as f:
             expected = json.load(f)
@@ -58,26 +64,34 @@ async def process_claim(claim_dir: Path, claim_num: int, api_url: str):
         predicted_decision = api_response.get('decision')
         predicted_explanation = api_response.get('explanation', '')
         expected_decision = expected['decision']
+        expected_explanation = expected.get('explanation', '')
         
         is_correct = predicted_decision == expected_decision
         
         if not is_correct and 'acceptable_decision' in expected:
             is_correct = predicted_decision == expected['acceptable_decision']
         
+        explanation_eval = evaluate_explanation_match(predicted_explanation, expected_explanation)
+        
         result = {
             "claim_num": claim_num,
             "predicted_decision": predicted_decision,
             "predicted_explanation": predicted_explanation,
             "expected_decision": expected_decision,
-            "expected_explanation": expected.get('explanation', ''),
-            "is_correct": is_correct
+            "expected_explanation": expected_explanation,
+            "is_correct": is_correct,
+            "execution_time_seconds": round(execution_time, 2),
+            "explanation_score": explanation_eval.get('score'),
+            "explanation_evaluation": explanation_eval.get('reasoning', '')
         }
         
         if 'acceptable_decision' in expected:
             result["expected_acceptable_decision"] = expected['acceptable_decision']
         
         status = "CORRECT" if is_correct else "WRONG"
-        logger.info(f"Claim {claim_num}: {status} - Predicted: {predicted_decision}, Expected: {expected_decision}")
+        exp_score = explanation_eval.get('score')
+        exp_info = f", Explanation score: {exp_score}" if exp_score is not None else ""
+        logger.info(f"Claim {claim_num}: {status} - Predicted: {predicted_decision}, Expected: {expected_decision}{exp_info}")
         
         for file_tuple in files.values():
             if hasattr(file_tuple[1], 'close'):
@@ -119,7 +133,32 @@ async def evaluate_dataset(dataset_path: str, output_path: str, api_url: str):
     total_claims = len(results)
     correct_predictions = sum(1 for r in results if r.get('is_correct', False))
     accuracy = (correct_predictions / total_claims * 100) if total_claims > 0 else 0
-    print(f"\nAccuracy: {correct_predictions}/{total_claims} ({accuracy:.2f}%)")
+    
+    # Calculate average execution time
+    execution_times = [r.get('execution_time_seconds', 0) for r in results if 'execution_time_seconds' in r]
+    avg_execution_time = sum(execution_times) / len(execution_times) if execution_times else 0
+    
+    # Calculate average explanation score (excluding None values)
+    explanation_scores = [r.get('explanation_score') for r in results if r.get('explanation_score') is not None]
+    avg_explanation_score = sum(explanation_scores) / len(explanation_scores) if explanation_scores else None
+    
+    # Create summary statistics
+    summary = {
+        "summary": {
+            "accuracy": round(accuracy, 2),
+            "correct_predictions": correct_predictions,
+            "total_claims": total_claims,
+            "average_execution_time_seconds": round(avg_execution_time, 2),
+            "average_explanation_score": round(avg_explanation_score, 2) if avg_explanation_score is not None else None,
+            "explanation_scores_evaluated": len(explanation_scores)
+        }
+    }
+    
+    logger.info("")
+    logger.info(f"Accuracy: {correct_predictions}/{total_claims} ({accuracy:.2f}%)")
+    logger.info(f"Average execution time: {avg_execution_time:.2f}s")
+    if avg_explanation_score is not None:
+        logger.info(f"Average explanation score: {avg_explanation_score:.2f} ({len(explanation_scores)} evaluated)")
     
     output_dir = Path(output_path)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -127,13 +166,14 @@ async def evaluate_dataset(dataset_path: str, output_path: str, api_url: str):
     confusion_matrix_path = output_dir / "confusion_matrix.png"
     generate_confusion_matrix_image(results, str(confusion_matrix_path))
     
-    # Save results JSON
+    # Save results JSON with summary as first element
     results_file = output_dir / "eval_results.json"
+    final_output = [summary] + results
     with open(results_file, 'w') as f:
-        json.dump(results, f, indent=2)
+        json.dump(final_output, f, indent=2)
     
-    print(f"Results: {results_file}")
-    print(f"Confusion matrix: {confusion_matrix_path}")
+    logger.info(f"Results: {results_file}")
+    logger.info(f"Confusion matrix: {confusion_matrix_path}")
 
 
 def get_arguments():
