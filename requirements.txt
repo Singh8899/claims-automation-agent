@@ -1,4 +1,4 @@
 httpx==0.28.1
-matplotlib==3.10.7
-numpy==2.3.5
+matplotlib==3.9.4
+numpy==2.0.2
 seaborn==0.13.2
