@@ -127,26 +127,10 @@ async def evaluate_dataset(dataset_path: str, output_path: str, api_url: str):
     confusion_matrix_path = output_dir / "confusion_matrix.png"
     generate_confusion_matrix_image(results, str(confusion_matrix_path))
     
-    # Save simplified results JSON
+    # Save results JSON
     results_file = output_dir / "eval_results.json"
-    simplified_results = []
-    for r in results:
-        result_entry = {
-            "claim": f"claim {r['claim_num']}",
-            "decision": r.get('predicted_decision', 'ERROR'),
-            "reason": r.get('predicted_explanation', r.get('error', 'Unknown error')),
-            "gt_decision": r.get('expected_decision', ''),
-        }
-        
-        # Add gt_reason only if present
-        gt_explanation = r.get('expected_explanation', '')
-        if gt_explanation:
-            result_entry["gt_reason"] = gt_explanation
-        
-        simplified_results.append(result_entry)
-    
     with open(results_file, 'w') as f:
-        json.dump(simplified_results, f, indent=2)
+        json.dump(results, f, indent=2)
     
     print(f"Results: {results_file}")
     print(f"Confusion matrix: {confusion_matrix_path}")
