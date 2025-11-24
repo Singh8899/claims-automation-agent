@@ -8,10 +8,8 @@ from minio.error import S3Error
 
 from .client import MINIO_BUCKET_NAME, minio_client
 
-# Configure logging
 logger = logging.getLogger("src.minio")
 
-# Supported image formats
 SUPPORTED_IMAGE_FORMATS = {'.webp', '.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
 
 

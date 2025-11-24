@@ -32,13 +32,11 @@ async_session = sessionmaker(
 
 
 async def init_db():
-    """Initialize database tables"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
 async def get_db():
-    """Database session dependency for FastAPI"""
     async with async_session() as session:
         try:
             yield session
@@ -48,7 +46,6 @@ async def get_db():
 
 @asynccontextmanager
 async def lifespan():
-    """Lifespan context manager for app startup and shutdown"""
     # Startup
     await init_db()
     yield

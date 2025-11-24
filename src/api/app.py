@@ -52,17 +52,6 @@ async def process_claim(
     claim_image: UploadFile = File(None, description="Image supporting the claim (.webp, .jpg, .jpeg, .png, .bmp, .tiff) - Optional"),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Process a new insurance claim
-    
-    Args:
-        claim_message: Txt file containing the claim description
-        claim_metadata: .md file with claim metadata
-        claim_image: Optional image file supporting the claim
-        db: Database session
-    Returns:
-        Dictionary with claim reference ID and status
-    """
     claim_id = str(uuid.uuid4())
     
     try:
@@ -115,15 +104,6 @@ async def get_claim_result(
     claim_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Retrieve the decision and explanation
-    
-    Args:
-        claim_id: The unique claim identifier
-        db: Database session
-    Returns:
-        ClaimDecisionResponse with decision and explanation
-    """
     try:
         db_claim = await crud.get_claim_by_id(db, claim_id)
         
@@ -154,16 +134,6 @@ async def get_claims(
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Retrieve a paginated list of all claim IDs.
-    
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        db: Database session
-    Returns:
-        ClaimsListResponse with list of claim IDs
-    """
     try:
         claims = await crud.get_all_claims(db, skip=skip, limit=limit)
         claim_ids = [claim.claim_id for claim in claims]

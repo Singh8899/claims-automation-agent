@@ -35,7 +35,6 @@ class MinIOClient:
             )
             logger.info(f"MinIO client initialized: {MINIO_ENDPOINT}")
             
-            # Create bucket if it doesn't exist
             if not self._client.bucket_exists(MINIO_BUCKET_NAME):
                 self._client.make_bucket(MINIO_BUCKET_NAME)
                 logger.info(f"MinIO bucket '{MINIO_BUCKET_NAME}' created successfully")

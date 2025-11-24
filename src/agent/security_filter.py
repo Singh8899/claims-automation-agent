@@ -1,4 +1,3 @@
-"""Security filters"""
 import re
 
 from dotenv import find_dotenv, load_dotenv
